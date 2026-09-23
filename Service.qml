@@ -87,6 +87,12 @@ Item {
   readonly property int minWriteMs: Math.round(clampNum(config.minWriteMs, 25, 5, 2000))
   readonly property string device: String(config.device || "")
 
+  // An app holding a Wayland idle-inhibitor blocks idle entirely. Browsers
+  // and editors hold one far more often than people expect, so allow
+  // opting out rather than silently never dimming.
+  readonly property bool respectInhibitors:
+    config.respectInhibitors === undefined ? true : !!config.respectInhibitors
+
   readonly property var vignetteConfig: config.vignette || ({})
   readonly property bool vignetteEnabled: vignetteConfig.enabled === undefined ? true : !!vignetteConfig.enabled
   readonly property real vignetteStartFraction: clampNum(vignetteConfig.startFraction, 0.2, 0, 0.95)
@@ -435,7 +441,7 @@ Item {
     id: idleMonitor
     enabled: root.armed
     timeout: root.startSeconds
-    respectInhibitors: true
+    respectInhibitors: root.respectInhibitors
     onIsIdleChanged: root.handleIdleChanged()
   }
 
