@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.zachvandorp123.idle-fade",
+  "name": "Idle Fade",
+  "version": "1.0.0",
+  "author": "Zach van Dorp",
+  "description": "Fades the screen to black while idle with a vignette that tunnels inward, then opens it back up like a pair of eyes, blinking twice.",
+  "kinds": ["service"],
+  "entryPoints": { "service": "Service.qml" }
+}

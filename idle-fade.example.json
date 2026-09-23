@@ -1,0 +1,25 @@
+{
+  "enabled": true,
+  "startSeconds": 60,
+  "durationSeconds": 240,
+  "minPercent": 1,
+  "curve": 1.6,
+  "stepPercent": 0.5,
+  "tickMs": 50,
+  "minWriteMs": 25,
+  "vignette": {
+    "enabled": true,
+    "startFraction": 0.2,
+    "curve": 1.5,
+    "softness": 0.55,
+    "openRadius": 1.5,
+    "quantize": 0.002
+  },
+  "wake": {
+    "enabled": true,
+    "blinks": 2,
+    "speed": 1.0,
+    "minProgress": 0.5,
+    "stepPercent": 2
+  }
+}
