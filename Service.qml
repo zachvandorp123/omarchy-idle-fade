@@ -65,6 +65,7 @@ Item {
   property real wakeStartedAt: 0
   property real wakeTotalMs: 0
   property int wakeFromLevel: -1
+  property bool released: false
   property bool vignetteShowing: false
   property string lastEvent: "starting"
   property string lastEventAt: ""
@@ -100,6 +101,7 @@ Item {
   readonly property real wakeSpeed: clampNum(wakeConfig.speed, 1, 0.2, 4)
   readonly property real wakeMinProgress: clampNum(wakeConfig.minProgress, 0.5, 0, 1)
   readonly property real wakeStepPercent: clampNum(wakeConfig.stepPercent, 2, 0.1, 25)
+  readonly property int releaseMs: Math.round(clampNum(wakeConfig.releaseMs, 1200, 100, 8000))
 
   // The tunnel and the eyelid share one gradient: during a fade both radii
   // shrink together, but on wake the horizontal one stays wide while the
@@ -176,7 +178,10 @@ Item {
 
   // Eyes coming open: a first squint, then `blinks` shut-and-wider cycles,
   // then all the way open as the overlay dissolves.
-  function buildWakeFrames() {
+  function buildWakeFrames(smooth) {
+    // A handoff is not a waking-up: another plugin wants the screen, so
+    // open straight out rather than blinking at nobody.
+    if (smooth) return [{ open: 1.7, width: 1.6, veil: 0, ms: root.releaseMs, ease: 'out' }]
     var s = root.wakeSpeed
     var frames = [{ open: 0.45, width: 1, ms: 200 * s, ease: 'out' }]
     for (var i = 0; i < root.wakeBlinks; i++) {
@@ -197,8 +202,8 @@ Item {
     return root.wakeEnabled && root.vignetteEnabled && root.maxProgress >= root.wakeMinProgress
   }
 
-  function beginWake() {
-    root.wakeFrames = buildWakeFrames()
+  function beginWake(smooth) {
+    root.wakeFrames = buildWakeFrames(smooth)
     root.wakeTotalMs = root.wakeFrames.reduce(function (sum, f) { return sum + f.ms }, 0)
     root.wakeIndex = 0
     root.wakeFromLevel = root.lastWritten > 0 ? root.lastWritten : root.minLevel
@@ -210,7 +215,8 @@ Item {
     root.vignetteShowing = true
     root.wakeStartedAt = Date.now()
     root.wakeFrameStartedAt = root.wakeStartedAt
-    logEvent('wake-start', root.wakeBlinks + ' blinks over ' + Math.round(root.wakeTotalMs) + 'ms')
+    logEvent('wake-start', (smooth ? 'smooth release' : root.wakeBlinks + ' blinks')
+      + ' over ' + Math.round(root.wakeTotalMs) + 'ms')
     wakeTimer.start()
   }
 
@@ -360,10 +366,12 @@ Item {
   // ---------------------------------------------------------- idle wiring
   function handleIdleChanged() {
     if (idleMonitor.isIdle) {
-      if (!root.armed) return
+      if (!root.armed || root.released) return
       beginFade(root.durationSeconds * 1000, false)
       return
     }
+
+    root.released = false
 
     if (!root.fading || root.previewing) return
 
@@ -616,6 +624,7 @@ Item {
         currentWritten: root.lastWritten,
         writes: root.writeCount,
         waking: root.waking,
+        released: root.released,
         wakeBlinks: root.wakeBlinks,
         maxProgress: Math.round(root.maxProgress * 1000) / 1000,
         vignette: root.vignetteEnabled,
@@ -640,6 +649,21 @@ Item {
 
     function restore(): string {
       root.endFade(true, "ipc")
+      return "ok"
+    }
+
+    // Hand the screen back to another idle plugin: restore the brightness
+    // and open the vignette smoothly, then stay out of the way until the
+    // next real activity.
+    function release(): string {
+      root.released = true
+      if (!root.fading && !root.waking) return "idle"
+      if (root.waking) return "waking"
+      fadeTimer.stop()
+      previewTimer.stop()
+      root.fading = false
+      root.previewing = false
+      beginWake(true)
       return "ok"
     }
   }
